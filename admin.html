@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Live Location</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <style>
+    body { margin:0; }
+    #map { height: 100vh; }
+  </style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<script type="module">
+  const firebaseConfig = {
+    apiKey: "AIzaSyA5iHHWvOKZnKlZCZz57O8ALtSkfNdMmrE",
+    authDomain: "live-tracker-554a7.firebaseapp.com",
+    databaseURL: "https://live-tracker-554a7-default-rtdb.firebaseio.com",
+    projectId: "live-tracker-554a7",
+    storageBucket: "live-tracker-554a7.firebasestorage.app",
+    messagingSenderId: "951695061306",
+    appId: "1:951695061306:web:a7b9478538f86f50a36003",
+    measurementId: "G-V4LCZSEQLC"
+  };
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  let map = L.map('map').setView([20.59, 78.96], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  let marker;
+
+  const locRef = ref(db, "liveLocation");
+  onValue(locRef, (snap)=>{
+    let data = snap.val();
+    if (!data) return;
+
+    let lat = data.latitude;
+    let lng = data.longitude;
+
+    if (!marker) {
+      marker = L.marker([lat,lng]).addTo(map);
+    } else {
+      marker.setLatLng([lat,lng]);
+    }
+
+    map.setView([lat,lng], 16);
+  });
+</script>
+
+</body>
+</html>
