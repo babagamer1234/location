@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Live Location</title>
+  <title>Admin Live Location Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <style>
-    body { margin:0; }
-    #map { height: 100vh; }
+    body { margin:0; font-family:Arial, sans-serif; }
+    header { background:#343a40; color:white; padding:15px; font-size:22px; text-align:center; }
+    #map { height: 90vh; width: 100%; }
+    .marker-label { font-weight:bold; color:#007bff; }
   </style>
 </head>
-
 <body>
 
+<header>Admin Dashboard - Live User Location</header>
 <div id="map"></div>
 
 <script type="module">
@@ -42,13 +43,13 @@
   const locRef = ref(db, "liveLocation");
   onValue(locRef, (snap)=>{
     let data = snap.val();
-    if (!data) return;
+    if(!data) return;
 
-    let lat = data.latitude;
-    let lng = data.longitude;
+    const lat = data.latitude;
+    const lng = data.longitude;
 
-    if (!marker) {
-      marker = L.marker([lat,lng]).addTo(map);
+    if(!marker){
+      marker = L.marker([lat,lng]).addTo(map).bindPopup("User Location").openPopup();
     } else {
       marker.setLatLng([lat,lng]);
     }
