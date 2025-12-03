@@ -1,44 +1,183 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Live Location Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin:0; text-align:center; background:#f4f4f4; }
-    header { background:#007bff; color:white; padding:20px; font-size:24px; }
-    p.description { margin:20px; font-size:18px; }
-    button { padding:15px 30px; font-size:18px; background:#28a745; color:white; border:none; border-radius:8px; cursor:pointer; }
-    #map { height:80vh; width:100%; display:none; margin-top:10px; border-radius:8px; }
-    /* Popup style */
-    .popup-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:none; justify-content:center; align-items:center; z-index:1000; }
-    .popup { background:white; padding:30px; border-radius:10px; max-width:300px; text-align:center; box-shadow:0 5px 15px rgba(0,0,0,0.3); }
-    .popup button { margin:10px; padding:10px 20px; font-size:16px; border:none; border-radius:6px; cursor:pointer; }
-    .allow-btn { background:#28a745; color:white; }
-    .deny-btn { background:#dc3545; color:white; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Share Live Location — User</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+  :root{
+    --glass: rgba(255,255,255,0.06);
+    --card: rgba(0,0,0,0.28);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    color: #fff;
+    height:100vh;
+    overflow:hidden;
+    /* RGB animated gradient */
+    background: linear-gradient(120deg, #ff007a, #00e7ff, #00ff7a);
+    background-size: 400% 400%;
+    animation: bgshift 8s ease infinite;
+  }
+  @keyframes bgshift{
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+  }
+
+  .app {
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .card {
+    width:100%;
+    max-width:900px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.06));
+    border-radius:16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    overflow:hidden;
+    backdrop-filter: blur(8px);
+  }
+
+  /* header */
+  .hero {
+    padding:36px 36px 20px;
+    text-align:center;
+  }
+  .hero h1{
+    margin:0 0 12px;
+    font-size:26px;
+    letter-spacing:0.2px;
+  }
+  .hero p{
+    margin:0;
+    opacity:0.9;
+    font-size:15px;
+  }
+
+  /* screens layout */
+  .screens {
+    display:flex;
+    height:calc(100vh - 160px);
+  }
+  .screen {
+    flex:1;
+    display:none;
+    padding:28px;
+    align-items:center;
+    justify-content:center;
+  }
+  .screen.active { display:flex; flex-direction:column; gap:16px; }
+
+  .btn {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:12px 20px;
+    border-radius:12px;
+    border:none;
+    cursor:pointer;
+    font-weight:600;
+    font-size:16px;
+    color:#fff;
+    background: rgba(0,0,0,0.6);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+  .btn.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.08); }
+
+  input[type="text"]{
+    width:80%;
+    max-width:420px;
+    padding:12px 14px;
+    border-radius:10px;
+    border: none;
+    outline: none;
+    font-size:16px;
+    background: rgba(255,255,255,0.06);
+    color:#fff;
+    text-align:center;
+  }
+
+  /* map screen fills card */
+  #map {
+    height:100%;
+    width:100%;
+  }
+
+  .note {
+    font-size:13px;
+    opacity:0.9;
+  }
+
+  .footer {
+    padding:12px 18px;
+    text-align:center;
+    font-size:13px;
+    opacity:0.9;
+    background: rgba(0,0,0,0.03);
+  }
+
+  /* small screens */
+  @media(max-width:700px){
+    .hero h1{ font-size:20px }
+    .screens{ height: calc(100vh - 200px); }
+  }
+</style>
 </head>
 <body>
+  <div class="app">
+    <div class="card">
+      <div class="hero">
+        <h1>Would you like to share your live location?</h1>
+        <p>Click Start — then enter your name and allow location on the next screen. Your live position will be shared securely.</p>
+      </div>
 
-<header>Live Location Tracker</header>
-<p class="description">Click below to share your live location safely. Your location will only be shared with consent.</p>
+      <div class="screens">
+        <!-- Screen 1 -->
+        <div id="screen-1" class="screen active" style="flex-direction:column;">
+          <button class="btn" id="startBtn" onclick="goToName()">Start</button>
+          <p class="note">Only share when you are comfortable. You can stop anytime.</p>
+        </div>
 
-<button id="startBtn">Show My Location</button>
+        <!-- Screen 2 -->
+        <div id="screen-2" class="screen" style="flex-direction:column;">
+          <h2 style="margin-bottom:6px">Enter your name</h2>
+          <input id="nameInput" type="text" placeholder="Your name (how others will see you)" />
+          <div style="height:12px"></div>
+          <button class="btn" id="seeLiveBtn" onclick="enterName()">See Live Location</button>
+          <p class="note">Next you will be asked to allow location permissions by the browser.</p>
+        </div>
 
-<!-- Consent Popup -->
-<div class="popup-overlay" id="consentPopup">
-  <div class="popup">
-    <p>Do you allow your location to be shared?</p>
-    <button id="allowBtn" class="allow-btn">Allow</button>
-    <button id="denyBtn" class="deny-btn">Deny</button>
+        <!-- Screen 3 (map) -->
+        <div id="screen-3" class="screen" style="padding:0;">
+          <div id="map"></div>
+        </div>
+      </div>
+
+      <div class="footer">You can close the page to stop sharing. This page uses OpenStreetMap (Leaflet) + Firebase Realtime Database.</div>
+    </div>
   </div>
-</div>
 
-<!-- Map -->
-<div id="map"></div>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<script type="module">
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+  // ---------- Firebase config (YOUR provided values) ----------
   const firebaseConfig = {
     apiKey: "AIzaSyA5iHHWvOKZnKlZCZz57O8ALtSkfNdMmrE",
     authDomain: "live-tracker-554a7.firebaseapp.com",
@@ -49,63 +188,100 @@
     appId: "1:951695061306:web:a7b9478538f86f50a36003",
     measurementId: "G-V4LCZSEQLC"
   };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  // UI helpers
+  const screen1 = document.getElementById('screen-1');
+  const screen2 = document.getElementById('screen-2');
+  const screen3 = document.getElementById('screen-3');
+  const nameInput = document.getElementById('nameInput');
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  let map, userMarker;
+  let watchId = null;
+  let userKey = null; // firebase key for this user
+  let userName = null;
 
-  const startBtn = document.getElementById('startBtn');
-  const consentPopup = document.getElementById('consentPopup');
-  const allowBtn = document.getElementById('allowBtn');
-  const denyBtn = document.getElementById('denyBtn');
-  const mapDiv = document.getElementById('map');
+  function goToName(){
+    screen1.classList.remove('active');
+    screen2.classList.add('active');
+  }
 
-  let map, marker;
+  function enterName(){
+    const v = nameInput.value.trim();
+    if(!v){ alert('Please enter your name'); return; }
+    userName = v;
+    // unique key: sanitized name + random suffix to avoid overwrite
+    const sanitized = userName.replace(/[.#$\/\[\]]/g,'_').replace(/\s+/g,'_');
+    const suffix = Math.floor(Math.random()*9000)+1000;
+    userKey = sanitized + '_' + suffix;
+    screen2.classList.remove('active');
+    screen3.classList.add('active');
+    startSharing();
+  }
 
-  startBtn.addEventListener('click', ()=>{
-    consentPopup.style.display = 'flex';
-  });
+  // Start location watch and Firebase updates
+  function startSharing(){
+    // init map centered roughly until position arrives
+    map = L.map('map').setView([20.5937,78.9629], 5); // India default
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-  denyBtn.addEventListener('click', ()=>{
-    consentPopup.style.display = 'none';
-  });
-
-  allowBtn.addEventListener('click', ()=>{
-    consentPopup.style.display = 'none';
-    mapDiv.style.display = 'block';
-
-    map = L.map('map').setView([20.59, 78.96], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    if (navigator.geolocation) {
-      navigator.geolocation.watchPosition((pos)=>{
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
-        if(!marker){
-          marker = L.marker([lat,lng]).addTo(map);
-        } else {
-          marker.setLatLng([lat,lng]);
-        }
-
-        map.setView([lat,lng], 17);
-
-        set(ref(db, "liveLocation"), {
-          latitude: lat,
-          longitude: lng,
-          time: Date.now()
-        });
-
-      }, (err)=>{
-        alert("Location error: " + err.message);
-      });
-    } else {
-      alert("Geolocation not supported by your browser.");
+    if(!('geolocation' in navigator)){
+      alert('Geolocation not supported by this browser.');
+      return;
     }
-  });
-</script>
 
+    watchId = navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy:true, maximumAge:5000, timeout:10000 });
+
+    // mark online in firebase (so admin can show active)
+    const metaRef = db.ref('users/' + userKey + '/meta');
+    metaRef.set({
+      name: userName,
+      startedAt: Date.now(),
+      online: true
+    });
+
+    // ensure offline update on unload
+    window.addEventListener('beforeunload', () => {
+      try {
+        navigator.geolocation.clearWatch(watchId);
+      } catch(e){}
+      db.ref('users/' + userKey + '/meta').update({ online: false, lastSeen: Date.now() });
+    });
+  }
+
+  function onPos(pos){
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const t = Date.now();
+
+    // Put marker
+    if(!userMarker){
+      userMarker = L.marker([lat,lng]).addTo(map).bindPopup(userName);
+    } else {
+      userMarker.setLatLng([lat,lng]);
+    }
+    map.setView([lat,lng], 16);
+
+    // Push to firebase
+    db.ref('users/' + userKey + '/location').set({
+      name: userName,
+      latitude: lat,
+      longitude: lng,
+      time: t,
+      online: true
+    });
+
+    // also update meta lastSeen
+    db.ref('users/' + userKey + '/meta').update({ lastSeen: t, online:true });
+  }
+
+  function onErr(err){
+    console.error('Location error', err);
+    alert('Error getting location: ' + err.message + '\nMake sure location permission is allowed.');
+  }
+</script>
 </body>
 </html>
