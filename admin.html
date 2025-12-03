@@ -1,23 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Admin Live Location Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <style>
-    body { margin:0; font-family:Arial, sans-serif; }
-    header { background:#343a40; color:white; padding:15px; font-size:22px; text-align:center; }
-    #map { height: 90vh; width: 100%; }
-    .marker-label { font-weight:bold; color:#007bff; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin — Live Users</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+  :root{
+    --card: rgba(0,0,0,0.36);
+    --glass: rgba(255,255,255,0.04);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    color:#fff;
+    min-height:100vh;
+    /* RGB gradient */
+    background: linear-gradient(120deg, #00c6ff, #00ff9d, #ff56c4);
+    background-size: 400% 400%;
+    animation: moveBG 9s ease infinite;
+  }
+  @keyframes moveBG{
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+  }
+
+  header{
+    padding:20px 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+  header h1{ margin:0; font-size:20px; }
+
+  .wrap{
+    display:grid;
+    grid-template-columns: 360px 1fr;
+    gap:18px;
+    padding:18px;
+    height: calc(100vh - 84px);
+  }
+
+  .panel{
+    background: var(--card);
+    border-radius:14px;
+    padding:14px;
+    overflow:auto;
+  }
+
+  .userItem{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px;
+    border-radius:10px;
+    margin-bottom:10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+  }
+  .left{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .dot {
+    width:12px; height:12px; border-radius:50%;
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
+  }
+  .dot.online{ background:#00ff6a; box-shadow:0 0 10px #00ff6a; }
+  .dot.offline{ background:#ffb86b; box-shadow:0 0 8px #ffb86b; }
+
+  .userName { font-weight:600; font-size:15px; }
+  .meta { font-size:12px; opacity:0.9; }
+
+  .btn {
+    background: rgba(255,255,255,0.06);
+    color:#fff;
+    border:none;
+    padding:8px 12px;
+    border-radius:10px;
+    cursor:pointer;
+  }
+
+  /* Map container */
+  #mapContainer{ border-radius:14px; overflow:hidden; }
+  #map{ width:100%; height:100%; }
+
+  @media(max-width:950px){
+    .wrap{ grid-template-columns: 1fr; grid-auto-rows: 320px 1fr; height: auto; padding-bottom:60px; }
+  }
+
+</style>
 </head>
 <body>
 
-<header>Admin Dashboard - Live User Location</header>
-<div id="map"></div>
+<header>
+  <h1>Admin Dashboard — Live Users</h1>
+  <div style="font-size:13px; opacity:0.95">Realtime: Firebase + Leaflet</div>
+</header>
 
-<script type="module">
+<div class="wrap">
+  <div class="panel" id="usersPanel">
+    <h3 style="margin:6px 0 12px;">Active Users</h3>
+    <div id="usersList"></div>
+  </div>
+
+  <div class="panel" id="mapContainer">
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+  // ---------- Firebase config (same as user) ----------
   const firebaseConfig = {
     apiKey: "AIzaSyA5iHHWvOKZnKlZCZz57O8ALtSkfNdMmrE",
     authDomain: "live-tracker-554a7.firebaseapp.com",
@@ -28,35 +134,120 @@
     appId: "1:951695061306:web:a7b9478538f86f50a36003",
     measurementId: "G-V4LCZSEQLC"
   };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  // Leaflet map init
+  const map = L.map('map').setView([20.5937,78.9629], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  // Keep markers per user
+  const markers = {};
 
-  let map = L.map('map').setView([20.59, 78.96], 5);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  const usersListEl = document.getElementById('usersList');
 
-  let marker;
+  // Listen for users list changes
+  db.ref('users').on('value', snapshot => {
+    usersListEl.innerHTML = ''; // reset list
 
-  const locRef = ref(db, "liveLocation");
-  onValue(locRef, (snap)=>{
-    let data = snap.val();
-    if(!data) return;
+    const data = snapshot.val() || {};
+    // iterate keys (userKey)
+    Object.keys(data).forEach(key => {
+      const userNode = data[key];
+      // if userNode has location under 'location'
+      const loc = userNode.location || {};
+      const meta = userNode.meta || {};
+      const name = (loc.name || meta.name) || key;
+      const lat = loc.latitude;
+      const lng = loc.longitude;
+      const online = meta.online === true || loc.online === true;
 
-    const lat = data.latitude;
-    const lng = data.longitude;
+      // build list card
+      const item = document.createElement('div');
+      item.className = 'userItem';
 
-    if(!marker){
-      marker = L.marker([lat,lng]).addTo(map).bindPopup("User Location").openPopup();
-    } else {
-      marker.setLatLng([lat,lng]);
+      const left = document.createElement('div');
+      left.className = 'left';
+      const dot = document.createElement('div');
+      dot.className = 'dot ' + (online ? 'online' : 'offline');
+      left.appendChild(dot);
+
+      const txt = document.createElement('div');
+      txt.innerHTML = `<div class="userName">${name}</div>
+                       <div class="meta">${online ? 'Active now' : ('Last seen: ' + (meta.lastSeen ? new Date(meta.lastSeen).toLocaleString() : 'unknown'))}</div>`;
+      left.appendChild(txt);
+
+      const right = document.createElement('div');
+      right.style.display='flex';
+      right.style.flexDirection='column';
+      right.style.alignItems='flex-end';
+      right.style.gap='8px';
+
+      const trackBtn = document.createElement('button');
+      trackBtn.className = 'btn';
+      trackBtn.textContent = 'Track';
+      trackBtn.onclick = () => trackUser(key);
+
+      const centerBtn = document.createElement('button');
+      centerBtn.className = 'btn';
+      centerBtn.textContent = 'Center';
+      centerBtn.onclick = () => {
+        if(lat && lng) map.setView([lat,lng], 16);
+      };
+
+      right.appendChild(trackBtn);
+      right.appendChild(centerBtn);
+
+      item.appendChild(left);
+      item.appendChild(right);
+      usersListEl.appendChild(item);
+
+      // update marker on map
+      if(lat && lng){
+        if(markers[key]){
+          markers[key].setLatLng([lat,lng]);
+        } else {
+          markers[key] = L.marker([lat,lng]).addTo(map).bindPopup(`<b>${name}</b>`);
+        }
+      } else {
+        // no location yet - remove marker if any
+        if(markers[key]){
+          map.removeLayer(markers[key]);
+          delete markers[key];
+        }
+      }
+    });
+  });
+
+  // Track a single user (listen to changes on that user's location and show marker big)
+  let trackedKey = null;
+  let trackedMarker = null;
+  function trackUser(key){
+    trackedKey = key;
+    // remove old tracked marker
+    if(trackedMarker){
+      try { map.removeLayer(trackedMarker); } catch(e){}
+      trackedMarker = null;
     }
 
-    map.setView([lat,lng], 16);
-  });
-</script>
+    db.ref('users/' + key + '/location').on('value', snap => {
+      const loc = snap.val();
+      if(!loc) return;
+      const lat = loc.latitude;
+      const lng = loc.longitude;
+      const name = loc.name || key;
 
+      if(trackedMarker){
+        trackedMarker.setLatLng([lat,lng]);
+      } else {
+        trackedMarker = L.marker([lat,lng], {riseOnHover:true}).addTo(map).bindPopup(`<b>${name}</b> (tracked)`);
+      }
+      map.setView([lat,lng], 16);
+    });
+  }
+
+</script>
 </body>
 </html>
